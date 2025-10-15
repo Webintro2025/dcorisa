@@ -1,33 +1,17 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
-import { promises as fs } from 'fs';
-import { randomUUID } from 'crypto';
 import dbConnect from '../../utils/dbConnect';
 import Product from '../../models/Product';
 import Category from '../../models/Category';
 
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'products');
-
-async function ensureUploadDir() {
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
-}
-
-async function saveFile(file) {
+async function readFileAsDataUrl(file) {
   if (!file || typeof file.arrayBuffer !== 'function' || file.size === 0) {
     return null;
   }
-
-  await ensureUploadDir();
+  const mimeType = typeof file.type === 'string' && file.type ? file.type : 'image/jpeg';
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const originalName = file.name || 'image';
-  const extension = originalName.includes('.') ? originalName.split('.').pop() : 'jpg';
-  const safeExt = extension.replace(/[^a-zA-Z0-9]/g, '') || 'jpg';
-  const filename = `product-${Date.now()}-${randomUUID()}.${safeExt}`;
-  const filePath = path.join(UPLOAD_DIR, filename);
-  await fs.writeFile(filePath, buffer);
-  const relativePath = path.join('uploads', 'products', filename).replace(/\\/g, '/');
-  return `/${relativePath}`;
+  const base64 = buffer.toString('base64');
+  return `data:${mimeType};base64,${base64}`;
 }
 
 function payloadError(message, status = 400) {
@@ -79,7 +63,7 @@ async function parseBody(req) {
 
       for (const entry of imageEntries) {
         if (entry && typeof entry === 'object' && typeof entry.arrayBuffer === 'function') {
-          const stored = await saveFile(entry);
+          const stored = await readFileAsDataUrl(entry);
           if (stored) {
             savedImages.push(stored);
           }
