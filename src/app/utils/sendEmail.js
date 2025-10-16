@@ -17,7 +17,11 @@ async function createTransporter() {
     },
   });
 
-  await transporter.verify();
+  try {
+    await transporter.verify();
+  } catch (error) {
+    console.warn('SMTP transporter verification failed. Attempting to continue.', error);
+  }
   return transporter;
 }
 

@@ -1,6 +1,18 @@
 "use client";
 import React, { useState, useEffect } from "react";
 
+const parseResponsePayload = async (response) => {
+	const rawBody = await response.text();
+	if (!rawBody) {
+		return null;
+	}
+	try {
+		return JSON.parse(rawBody);
+	} catch (error) {
+		return rawBody;
+	}
+};
+
 const Popup = ({ isOpen, onClose, onSuccess }) => {
 	const [email, setEmail] = useState("");
 	const [otp, setOtp] = useState("");
@@ -34,9 +46,10 @@ const Popup = ({ isOpen, onClose, onSuccess }) => {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email }),
 			});
-			const data = await response.json();
+			const payload = await parseResponsePayload(response);
 			if (!response.ok) {
-				throw new Error(data.message || "Unable to send OTP");
+				const message = typeof payload === "string" ? payload : payload?.message;
+				throw new Error(message || "Unable to send OTP");
 			}
 			setStep(2);
 			setFeedback({ text: "OTP sent to your email address", isError: false });
@@ -57,18 +70,20 @@ const Popup = ({ isOpen, onClose, onSuccess }) => {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email, otp }),
 			});
-			const data = await response.json();
+			const payload = await parseResponsePayload(response);
 			if (!response.ok) {
-				throw new Error(data.message || "Invalid OTP");
+				const message = typeof payload === "string" ? payload : payload?.message;
+				throw new Error(message || "Invalid OTP");
 			}
-			if (data.token) {
-				localStorage.setItem("token", data.token);
+			const token = typeof payload === "object" && payload !== null ? payload.token : undefined;
+			if (token) {
+				localStorage.setItem("token", token);
 				if (typeof window !== "undefined") {
-					window.dispatchEvent(new CustomEvent("app:token-updated", { detail: data.token }));
+					window.dispatchEvent(new CustomEvent("app:token-updated", { detail: token }));
 				}
 			}
 			setFeedback({ text: "Login successful", isError: false });
-			onSuccess?.(data.token || null);
+			onSuccess?.(token || null);
 			closePopup();
 		} catch (error) {
 			setFeedback({ text: error.message, isError: true });

@@ -24,4 +24,6 @@ const userSchema = new mongoose.Schema({
   }
 });
 
+userSchema.index({ mobile: 1 }, { unique: true, sparse: true, name: 'mobile_1' });
+
 export default mongoose.models.User || mongoose.model('User', userSchema);
